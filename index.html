@@ -257,10 +257,9 @@ loadFromGithub();
 
 function normSprint(s) {
   if (!s || typeof s !== 'string') return '';
-  return s.trim().toUpperCase()
-    .replace(/İ/g,'I').replace(/Ş/g,'S').replace(/Ğ/g,'G')
-    .replace(/Ü/g,'U').replace(/Ö/g,'O').replace(/Ç/g,'C')
-    .replace(/\s+/g,'').replace(/-/g,'');
+  const trMap = {'i':'I','ı':'I','İ':'I','I':'I','ş':'S','Ş':'S','ğ':'G','Ğ':'G','ü':'U','Ü':'U','ö':'O','Ö':'O','ç':'C','Ç':'C'};
+  return s.trim().split('').map(c => trMap[c] || c).join('')
+    .toUpperCase().replace(/\s+/g,'').replace(/-/g,'');
 }
 
 let kpiLookupKeys = [];
@@ -288,7 +287,8 @@ function parseKpiSheet(wb) {
     if (!lookup[key]) lookup[key] = {};
     PEOPLE.forEach(name => {
       for (let r = 1; r < rows.length; r++) {
-        if (rows[r][0] && String(rows[r][0]).trim() === name) {
+        const cellName = rows[r][0] ? String(rows[r][0]).trim() : '';
+        if (cellName === name || normSprint(cellName) === normSprint(name)) {
           const val = rows[r][c];
           if (val !== null && val !== undefined && typeof val === 'number' && !isNaN(val)) {
             lookup[key][name] = val;
