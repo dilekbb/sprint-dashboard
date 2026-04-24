@@ -417,11 +417,14 @@ function renderDashboard(year) {
   html.push(summaryCard('Aktif üye', Object.keys(personStats).length, 'kişi', '#6ee7b7'));
   html.push('</div>');
 
+  // Sort people by current year ratio descending
+  const sortedPeople = PEOPLE.filter(p => yearData[p]).sort((a, b) => personStats[b].avg - personStats[a].avg);
+
   // Section: kişi kartları
   html.push('<div class="section-header"><span class="section-title">Kişi bazlı özet</span></div>');
   html.push('<div class="person-grid">');
 
-  PEOPLE.forEach(p => {
+  sortedPeople.forEach(p => {
     if (!yearData[p]) return;
     const s = personStats[p];
     const av = AVATARS[p] || { bg:'#222', color:'#aaa', initials: p.slice(0,2).toUpperCase() };
@@ -503,8 +506,7 @@ function renderDashboard(year) {
   allSprints.slice(-12).forEach(s => html.push(`<th>${shortSprint(s)}</th>`));
   html.push('</tr></thead><tbody>');
 
-  PEOPLE.forEach(p => {
-    if (!yearData[p]) return;
+  sortedPeople.forEach(p => {
     const av = AVATARS[p] || { color:'#aaa' };
     html.push(`<tr><td style="font-weight:500;color:${av.color}">${p}</td>`);
     const recent = yearData[p].slice(-12);
