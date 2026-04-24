@@ -255,19 +255,54 @@ async function loadFromGithub() {
 
 loadFromGithub();
 
+function normSprint(s) {
+  if (!s || typeof s !== 'string') return '';
+  return s.trim().toUpperCase()
+    .replace(/İ/g,'I').replace(/Ş/g,'S').replace(/Ğ/g,'G')
+    .replace(/Ü/g,'U').replace(/Ö/g,'O').replace(/Ç/g,'C')
+    .replace(/\s+/g,'').replace(/-/g,'');
+}
+
+function parseKpiSheet(wb) {
+  const ws = wb.Sheets['KPIKudo'];
+  if (!ws) return {};
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+  const sprintRow = rows[0];
+  const lookup = {};
+  for (let c = 1; c < sprintRow.length; c++) {
+    const sprintName = sprintRow[c];
+    if (!sprintName) continue;
+    const key = normSprint(String(sprintName));
+    if (!lookup[key]) lookup[key] = {};
+    PEOPLE.forEach(name => {
+      for (let r = 1; r < rows.length; r++) {
+        if (rows[r][0] && String(rows[r][0]).trim() === name) {
+          const val = rows[r][c];
+          if (val !== null && val !== undefined && typeof val === 'number' && !isNaN(val)) {
+            lookup[key][name] = val;
+          }
+          break;
+        }
+      }
+    });
+  }
+  return lookup;
+}
+
 function parseWorkbook(wb) {
   const result = {};
+  const kpiLookup = parseKpiSheet(wb);
   ['2025','2026'].forEach(year => {
     const ws = wb.Sheets[year];
     if (!ws) return;
     const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
-    const parsed = parseYearSheet(rows, year);
+    const parsed = parseYearSheet(rows, year, kpiLookup);
     if (parsed) result[year] = parsed;
   });
   return result;
 }
 
-function parseYearSheet(rows, year) {
+function parseYearSheet(rows, year, kpiLookup) {
   // Find sprint names row (row 0), actual scores, expected scores
   const sprintRow = rows[0];
   const sprints = [];
@@ -302,12 +337,16 @@ function parseYearSheet(rows, year) {
 
     const sprintData = [];
     for (let i = 0; i < n; i++) {
+      const sprintName = sprints[i] || `Sprint ${i+1}`;
+      const kpiKey = normSprint(sprintName);
+      const kpiScore = (kpiLookup[kpiKey] && kpiLookup[kpiKey][name] != null) ? kpiLookup[kpiKey][name] : null;
       sprintData.push({
-        sprint: sprints[i] || `Sprint ${i+1}`,
+        sprint: sprintName,
         actual: actual[i],
         expected: expected[i],
         items: items[i] || null,
-        ratio: expected[i] > 0 ? actual[i] / expected[i] : 0
+        ratio: expected[i] > 0 ? actual[i] / expected[i] : 0,
+        kpi: kpiScore
       });
     }
     people[name] = sprintData;
@@ -490,25 +529,66 @@ function renderDashboard(year) {
     if (!yearData[p]) return;
     yearData[p].forEach((d, i) => { if (!allSprints[i]) allSprints[i] = d.sprint; });
   });
-  allSprints.slice(-12).forEach(s => html.push(`<th>${shortSprint(s)}</th>`));
+  const recentSprints = allSprints.slice(-12);
+  recentSprints.forEach(s => html.push(`<th>${shortSprint(s)}</th>`));
   html.push('</tr></thead><tbody>');
 
+  // Kapasite satırları
   sortedPeople.forEach(p => {
     const av = AVATARS[p] || { color:'#aaa' };
     html.push(`<tr><td style="font-weight:500;color:${av.color}">${p}</td>`);
-    const recent = yearData[p].slice(-12);
-    recent.forEach(d => {
+    const recent = yearData[p] ? yearData[p].slice(-12) : [];
+    recentSprints.forEach((_, i) => {
+      const d = recent[i];
+      if (!d) { html.push('<td>—</td>'); return; }
       const pc = pillColor(d.ratio);
       html.push(`<td><span class="cell-pill" style="background:${pc.bg};color:${pc.color}">${(d.ratio*100).toFixed(0)}%</span></td>`);
     });
     html.push('</tr>');
   });
+
+  // KPI satırları — her sprint için sıralama belirle
+  html.push(`<tr><td colspan="${recentSprints.length + 1}" style="padding:6px 10px 2px;font-size:10px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.08em;border-top:1px solid rgba(255,255,255,0.1)">KPI Notu</td></tr>`);
+
+  sortedPeople.forEach(p => {
+    const av = AVATARS[p] || { color:'#aaa' };
+    html.push(`<tr><td style="font-weight:500;color:${av.color};font-size:12px">${p}</td>`);
+    const recent = yearData[p] ? yearData[p].slice(-12) : [];
+
+    recentSprints.forEach((_, i) => {
+      const d = recent[i];
+      if (!d || d.kpi === null) { html.push('<td style="color:var(--muted);font-size:11px;text-align:center">—</td>'); return; }
+
+      // Collect all kpi scores for this sprint index across people
+      const sprintKpis = sortedPeople
+        .map(pp => { const dd = yearData[pp] && yearData[pp].slice(-12)[i]; return dd && dd.kpi !== null ? { name: pp, kpi: dd.kpi } : null; })
+        .filter(Boolean);
+
+      if (sprintKpis.length === 0) { html.push('<td>—</td>'); return; }
+
+      const kpiVals = sprintKpis.map(x => x.kpi);
+      const avg = kpiVals.reduce((a,b)=>a+b,0) / kpiVals.length;
+      const max = Math.max(...kpiVals);
+      const min = Math.min(...kpiVals);
+
+      let kpiColor, kpiBg;
+      if (d.kpi === max) { kpiColor = '#34d399'; kpiBg = 'rgba(52,211,153,0.15)'; }
+      else if (d.kpi === min) { kpiColor = '#f87171'; kpiBg = 'rgba(248,113,113,0.15)'; }
+      else if (d.kpi < avg) { kpiColor = '#fb923c'; kpiBg = 'rgba(251,146,60,0.15)'; }
+      else { kpiColor = '#9ca3af'; kpiBg = 'transparent'; }
+
+      html.push(`<td><span class="cell-pill" style="background:${kpiBg};color:${kpiColor}">${d.kpi.toFixed(2)}</span></td>`);
+    });
+    html.push('</tr>');
+  });
+
   html.push('</tbody></table>');
   html.push('<div class="legend">');
-  html.push('<div class="legend-item"><div class="legend-dot" style="background:#34d399"></div>≥100% hedef</div>');
+  html.push('<div class="legend-item"><div class="legend-dot" style="background:#34d399"></div>≥100% / KPI 1.</div>');
   html.push('<div class="legend-item"><div class="legend-dot" style="background:#60a5fa"></div>80–99%</div>');
   html.push('<div class="legend-item"><div class="legend-dot" style="background:#fbbf24"></div>60–79%</div>');
-  html.push('<div class="legend-item"><div class="legend-dot" style="background:#f87171"></div>&lt;60%</div>');
+  html.push('<div class="legend-item"><div class="legend-dot" style="background:#f87171"></div>&lt;60% / KPI son</div>');
+  html.push('<div class="legend-item"><div class="legend-dot" style="background:#fb923c"></div>KPI ort. altı</div>');
   html.push('</div></div>');
 
   document.getElementById('main-content').innerHTML = html.join('');
