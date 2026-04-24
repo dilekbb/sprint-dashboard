@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sprint Velocity Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d0f12;
+    --surface: #141619;
+    --surface2: #1c1f23;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text: #e8eaed;
+    --muted: #6b7280;
+    --accent: #6ee7b7;
+    --accent2: #818cf8;
+    --warn: #fbbf24;
+    --danger: #f87171;
+    --green: #34d399;
+    --blue: #60a5fa;
+    --font: 'DM Sans', sans-serif;
+    --mono: 'DM Mono', monospace;
+  }
+
+  body { background: var(--bg); color: var(--text); font-family: var(--font); min-height: 100vh; font-size: 14px; }
+
+  /* Upload screen */
+  #upload-screen {
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 32px; padding: 2rem;
+  }
+
+  .logo { font-family: var(--mono); font-size: 11px; letter-spacing: 0.15em; color: var(--muted); text-transform: uppercase; }
+
+  h1 { font-size: clamp(28px, 4vw, 42px); font-weight: 300; letter-spacing: -0.03em; line-height: 1.2; text-align: center; }
+  h1 span { color: var(--accent); font-weight: 500; }
+
+  .drop-zone {
+    width: 100%; max-width: 520px; border: 1px dashed var(--border2); border-radius: 16px;
+    padding: 48px 32px; text-align: center; cursor: pointer; transition: all 0.2s;
+    background: var(--surface);
+  }
+  .drop-zone:hover, .drop-zone.drag-over { border-color: var(--accent); background: rgba(110,231,183,0.04); }
+  .drop-zone input { display: none; }
+
+  .drop-icon { font-size: 36px; margin-bottom: 12px; opacity: 0.5; }
+  .drop-text { font-size: 15px; color: var(--text); margin-bottom: 6px; }
+  .drop-sub { font-size: 12px; color: var(--muted); }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px;
+    background: var(--accent); color: #0d0f12; border: none; border-radius: 8px;
+    font-family: var(--font); font-size: 13px; font-weight: 500; cursor: pointer; transition: opacity 0.15s;
+  }
+  .btn:hover { opacity: 0.85; }
+
+  /* Dashboard */
+  #dashboard { display: none; }
+
+  .topbar {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(13,15,18,0.92); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px; height: 52px; display: flex; align-items: center; justify-content: space-between;
+  }
+  .topbar-left { display: flex; align-items: center; gap: 16px; }
+  .topbar-title { font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase; }
+  .topbar-file { font-size: 12px; color: var(--accent); }
+  .topbar-right { display: flex; align-items: center; gap: 12px; }
+
+  .year-tabs { display: flex; gap: 4px; }
+  .year-tab {
+    padding: 5px 12px; border-radius: 6px; font-size: 12px; font-family: var(--mono);
+    border: 1px solid var(--border); background: transparent; color: var(--muted);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .year-tab.active { background: var(--accent); color: #0d0f12; border-color: var(--accent); font-weight: 500; }
+  .year-tab:hover:not(.active) { border-color: var(--border2); color: var(--text); }
+
+  .reload-btn {
+    padding: 5px 12px; border-radius: 6px; font-size: 12px; font-family: var(--mono);
+    border: 1px solid var(--border); background: transparent; color: var(--muted);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .reload-btn:hover { border-color: var(--border2); color: var(--text); }
+
+  .main { padding: 24px; max-width: 1400px; margin: 0 auto; }
+
+  /* Summary strip */
+  .summary-strip {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 24px;
+  }
+  .summary-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .summary-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+  .summary-value { font-size: 22px; font-weight: 500; font-family: var(--mono); }
+  .summary-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  /* Person grid */
+  .section-header {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;
+  }
+  .section-title { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em; font-family: var(--mono); }
+
+  .person-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; margin-bottom: 28px;
+  }
+
+  .person-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px; transition: border-color 0.15s;
+  }
+  .person-card:hover { border-color: var(--border2); }
+
+  .pc-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .pc-avatar {
+    width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center;
+    justify-content: center; font-size: 11px; font-weight: 500; font-family: var(--mono); flex-shrink: 0;
+  }
+  .pc-name { font-size: 14px; font-weight: 500; }
+  .pc-sprints { font-size: 11px; color: var(--muted); margin-top: 1px; }
+  .pc-badge {
+    margin-left: auto; font-size: 10px; padding: 3px 8px; border-radius: 20px;
+    font-family: var(--mono); font-weight: 500;
+  }
+
+  .pc-bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .pc-year { font-family: var(--mono); font-size: 10px; color: var(--muted); min-width: 32px; }
+  .pc-bar-bg { flex: 1; height: 14px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+  .pc-bar-fill { height: 100%; border-radius: 3px; display: flex; align-items: center; padding-left: 5px; font-size: 9px; font-family: var(--mono); color: rgba(0,0,0,0.7); font-weight: 500; transition: width 0.6s cubic-bezier(0.4,0,0.2,1); }
+  .pc-bar-label { font-family: var(--mono); font-size: 10px; color: var(--muted); min-width: 42px; text-align: right; }
+
+  .pc-divider { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
+
+  .pc-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .pc-stat { }
+  .pc-stat-label { font-size: 10px; color: var(--muted); margin-bottom: 2px; }
+  .pc-stat-value { font-size: 15px; font-weight: 500; font-family: var(--mono); }
+  .pc-stat-sub { font-size: 10px; color: var(--muted); }
+
+  /* Chart section */
+  .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 28px; }
+  @media (max-width: 900px) { .charts-grid { grid-template-columns: 1fr; } }
+
+  .chart-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px;
+  }
+  .chart-title { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; font-family: var(--mono); margin-bottom: 16px; }
+
+  /* Sprint trend table */
+  .trend-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin-bottom: 28px; overflow-x: auto;
+  }
+  .trend-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .trend-table th {
+    font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 0.08em; padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .trend-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .trend-table tr:last-child td { border-bottom: none; }
+  .trend-table tr:hover td { background: var(--surface2); }
+
+  .cell-pill {
+    display: inline-block; padding: 2px 7px; border-radius: 4px; font-family: var(--mono);
+    font-size: 11px; font-weight: 500;
+  }
+
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 12px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+  /* Colors */
+  .c-green { color: #34d399; }
+  .c-blue { color: #60a5fa; }
+  .c-warn { color: #fbbf24; }
+  .c-danger { color: #f87171; }
+
+  .loading { text-align: center; padding: 60px; color: var(--muted); font-family: var(--mono); font-size: 13px; }
+</style>
+</head>
+<body>
+
+<!-- Upload Screen -->
+<div id="upload-screen">
+  <div class="logo">Sprint Velocity Dashboard</div>
+  <h1>Ekip <span>velocity'nizi</span><br>takip edin</h1>
+  <div class="drop-zone" id="drop-zone">
+    <input type="file" id="file-input" accept=".xlsx,.xls">
+    <div class="drop-icon">📊</div>
+    <div class="drop-text">IT_Rapor.xlsx dosyasını sürükleyin</div>
+    <div class="drop-sub" style="margin-bottom:16px">veya</div>
+    <button class="btn" onclick="document.getElementById('file-input').click()">Dosya seç</button>
+  </div>
+  <div style="font-size:12px;color:var(--muted);text-align:center;max-width:400px">
+    Veriler tarayıcınızda işlenir, hiçbir yere gönderilmez.<br>
+    Her sprint sonunda güncel dosyayı yükleyin.
+  </div>
+</div>
+
+<!-- Dashboard -->
+<div id="dashboard">
+  <div class="topbar">
+    <div class="topbar-left">
+      <span class="topbar-title">Velocity</span>
+      <span class="topbar-file" id="file-name-display"></span>
+    </div>
+    <div class="topbar-right">
+      <div class="year-tabs" id="year-tabs"></div>
+      <button class="reload-btn" onclick="resetDashboard()">↩ Yeni dosya</button>
+    </div>
+  </div>
+  <div class="main" id="main-content">
+    <div class="loading">Veriler yükleniyor...</div>
+  </div>
+</div>
+
+<script>
+const PEOPLE = ['İslam','MuratSaç','Emre','Farhad','Malik','Yılmaz','Furkan'];
+const AVATARS = {
+  'İslam': {bg:'#1a3a5c', color:'#60a5fa', initials:'İS'},
+  'MuratSaç': {bg:'#14362c', color:'#34d399', initials:'MS'},
+  'Emre': {bg:'#2a1f5c', color:'#818cf8', initials:'EM'},
+  'Farhad': {bg:'#3d2a0a', color:'#fbbf24', initials:'FA'},
+  'Malik': {bg:'#1a3020', color:'#6ee7b7', initials:'MA'},
+  'Yılmaz': {bg:'#3d1a0a', color:'#fb923c', initials:'YI'},
+  'Furkan': {bg:'#2a2a2a', color:'#9ca3af', initials:'FU'}
+};
+
+let allData = {};
+let activeYear = null;
+let chartInstances = [];
+
+// Drag & drop
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) processFile(file);
+});
+fileInput.addEventListener('change', e => { if (e.target.files[0]) processFile(e.target.files[0]); });
+
+function processFile(file) {
+  document.getElementById('file-name-display').textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const wb = XLSX.read(e.target.result, { type: 'array' });
+    allData = parseWorkbook(wb);
+    const years = Object.keys(allData).sort();
+    activeYear = years[years.length - 1];
+    buildYearTabs(years);
+    document.getElementById('upload-screen').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    renderDashboard(activeYear);
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function parseWorkbook(wb) {
+  const result = {};
+  ['2025','2026'].forEach(year => {
+    const ws = wb.Sheets[year];
+    if (!ws) return;
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+    const parsed = parseYearSheet(rows, year);
+    if (parsed) result[year] = parsed;
+  });
+  return result;
+}
+
+function parseYearSheet(rows, year) {
+  // Find sprint names row (row 0), actual scores, expected scores
+  const sprintRow = rows[0];
+  const sprints = [];
+  for (let c = 1; c < sprintRow.length; c++) {
+    if (sprintRow[c] && typeof sprintRow[c] === 'string') sprints.push(sprintRow[c]);
+    else if (sprintRow[c] && typeof sprintRow[c] === 'number') sprints.push(String(sprintRow[c]));
+  }
+
+  // Find section starts
+  let actualStart = -1, expectedStart = -1, itemStart = 1;
+  for (let r = 0; r < rows.length; r++) {
+    const cell = rows[r][0];
+    if (!cell) continue;
+    const s = String(cell).toUpperCase();
+    if ((s.includes('TOPLAM') || s.includes('GERÇEKLEŞEN')) && s.includes('SCORE') && actualStart < 0) actualStart = r + 1;
+    if (s.includes('BEKLENEN') && s.includes('SCORE')) expectedStart = r + 1;
+  }
+  if (actualStart < 0 || expectedStart < 0) return null;
+
+  const people = {};
+  PEOPLE.forEach(name => {
+    const actRow = findPersonRow(rows, name, actualStart, actualStart + 10);
+    const expRow = findPersonRow(rows, name, expectedStart, expectedStart + 10);
+    const itmRow = findPersonRow(rows, name, itemStart, itemStart + 10);
+    if (!actRow && !expRow) return;
+
+    const actual = extractNums(actRow || []);
+    const expected = extractNums(expRow || []);
+    const items = extractNums(itmRow || []);
+    const n = Math.min(actual.length, expected.length);
+    if (n === 0) return;
+
+    const sprintData = [];
+    for (let i = 0; i < n; i++) {
+      sprintData.push({
+        sprint: sprints[i] || `Sprint ${i+1}`,
+        actual: actual[i],
+        expected: expected[i],
+        items: items[i] || null,
+        ratio: expected[i] > 0 ? actual[i] / expected[i] : 0
+      });
+    }
+    people[name] = sprintData;
+  });
+  return people;
+}
+
+function findPersonRow(rows, name, start, end) {
+  for (let r = start; r < Math.min(end, rows.length); r++) {
+    const cell = rows[r][0];
+    if (cell && String(cell).trim() === name) return rows[r];
+  }
+  return null;
+}
+
+function extractNums(row) {
+  const result = [];
+  for (let c = 1; c < row.length; c++) {
+    const v = row[c];
+    if (v !== null && v !== undefined && typeof v === 'number' && !isNaN(v)) result.push(v);
+  }
+  return result;
+}
+
+function buildYearTabs(years) {
+  const container = document.getElementById('year-tabs');
+  container.innerHTML = '';
+  years.forEach(y => {
+    const btn = document.createElement('button');
+    btn.className = 'year-tab' + (y === activeYear ? ' active' : '');
+    btn.textContent = y;
+    btn.onclick = () => { activeYear = y; document.querySelectorAll('.year-tab').forEach(b => b.classList.remove('active')); btn.classList.add('active'); renderDashboard(y); };
+    container.appendChild(btn);
+  });
+}
+
+function barColor(ratio) {
+  if (ratio >= 1.0) return '#34d399';
+  if (ratio >= 0.8) return '#60a5fa';
+  if (ratio >= 0.6) return '#fbbf24';
+  return '#f87171';
+}
+
+function pillColor(ratio) {
+  if (ratio >= 1.0) return { bg: 'rgba(52,211,153,0.15)', color: '#34d399' };
+  if (ratio >= 0.8) return { bg: 'rgba(96,165,250,0.15)', color: '#60a5fa' };
+  if (ratio >= 0.6) return { bg: 'rgba(251,191,36,0.15)', color: '#fbbf24' };
+  return { bg: 'rgba(248,113,113,0.15)', color: '#f87171' };
+}
+
+function stats(data) {
+  const ratios = data.map(d => d.ratio);
+  const avg = ratios.reduce((a,b) => a+b, 0) / ratios.length;
+  const above = ratios.filter(r => r >= 1.0).length;
+  const totalActual = data.reduce((a,d) => a+d.actual, 0);
+  const totalExpected = data.reduce((a,d) => a+d.expected, 0);
+  const avgActual = data.reduce((a,d) => a+d.actual, 0) / data.length;
+  const avgItems = data.filter(d => d.items).reduce((a,d) => a+d.items, 0) / (data.filter(d => d.items).length || 1);
+  return { avg, above, total: data.length, totalActual, totalExpected, avgActual, avgItems, best: Math.max(...ratios), worst: Math.min(...ratios) };
+}
+
+function renderDashboard(year) {
+  chartInstances.forEach(c => c.destroy());
+  chartInstances = [];
+
+  const yearData = allData[year];
+  if (!yearData) { document.getElementById('main-content').innerHTML = '<div class="loading">Bu yıl için veri bulunamadı.</div>'; return; }
+
+  const prevYear = String(Number(year) - 1);
+  const prevData = allData[prevYear];
+
+  // Calc team-level stats
+  let teamSprints = 0, teamActual = 0, teamExpected = 0, teamAbove = 0;
+  const personStats = {};
+  PEOPLE.forEach(p => {
+    if (!yearData[p]) return;
+    const s = stats(yearData[p]);
+    personStats[p] = s;
+    teamSprints = Math.max(teamSprints, yearData[p].length);
+    teamActual += s.totalActual;
+    teamExpected += s.totalExpected;
+    teamAbove += s.above;
+  });
+  const teamRatio = teamExpected > 0 ? teamActual / teamExpected : 0;
+
+  const html = [];
+
+  // Summary strip
+  html.push('<div class="summary-strip">');
+  html.push(summaryCard('Ekip kapasite', (teamRatio*100).toFixed(0)+'%', year + ' ortalaması', teamRatio >= 1 ? '#34d399' : teamRatio >= 0.8 ? '#60a5fa' : '#fbbf24'));
+  html.push(summaryCard('Toplam sprint', teamSprints, 'bu yıl', '#818cf8'));
+  html.push(summaryCard('Toplam score', Math.round(teamActual).toLocaleString(), 'gerçekleşen', '#60a5fa'));
+  html.push(summaryCard('Beklenen score', Math.round(teamExpected).toLocaleString(), 'hedef', '#6b7280'));
+  html.push(summaryCard('Aktif üye', Object.keys(personStats).length, 'kişi', '#6ee7b7'));
+  html.push('</div>');
+
+  // Section: kişi kartları
+  html.push('<div class="section-header"><span class="section-title">Kişi bazlı özet</span></div>');
+  html.push('<div class="person-grid">');
+
+  PEOPLE.forEach(p => {
+    if (!yearData[p]) return;
+    const s = personStats[p];
+    const av = AVATARS[p] || { bg:'#222', color:'#aaa', initials: p.slice(0,2).toUpperCase() };
+    const pc = pillColor(s.avg);
+    const prev = prevData && prevData[p] ? stats(prevData[p]) : null;
+    const trendDiff = prev ? ((s.avg - prev.avg) * 100).toFixed(0) : null;
+    const trendLabel = trendDiff === null ? '' : (Math.abs(trendDiff) < 3 ? 'Stabil' : (trendDiff > 0 ? '▲ '+Math.abs(trendDiff)+'%' : '▼ '+Math.abs(trendDiff)+'%'));
+    const trendBg = trendDiff === null ? 'transparent' : (Math.abs(trendDiff) < 3 ? 'rgba(107,114,128,0.2)' : (trendDiff > 0 ? 'rgba(52,211,153,0.15)' : 'rgba(248,113,113,0.15)'));
+    const trendColor = trendDiff === null ? 'transparent' : (Math.abs(trendDiff) < 3 ? '#6b7280' : (trendDiff > 0 ? '#34d399' : '#f87171'));
+
+    const w = Math.min(s.avg * 100, 100);
+    const bc = barColor(s.avg);
+
+    const prevRatio = prev ? Math.min(prev.avg * 100, 100) : null;
+    const prevBc = prev ? barColor(prev.avg) : null;
+
+    html.push(`
+    <div class="person-card">
+      <div class="pc-header">
+        <div class="pc-avatar" style="background:${av.bg};color:${av.color}">${av.initials}</div>
+        <div>
+          <div class="pc-name">${p}</div>
+          <div class="pc-sprints">${s.total} sprint · ${s.above}/${s.total} hedef</div>
+        </div>
+        ${trendLabel ? `<span class="pc-badge" style="background:${trendBg};color:${trendColor}">${trendLabel}</span>` : ''}
+      </div>
+
+      <div class="pc-bar-row">
+        <span class="pc-year">${year}</span>
+        <div class="pc-bar-bg"><div class="pc-bar-fill" style="width:${w}%;background:${bc}">${(s.avg*100).toFixed(0)}%</div></div>
+        <span class="pc-bar-label" style="color:${bc}">${(s.avg*100).toFixed(0)}%</span>
+      </div>
+      ${prevRatio !== null ? `
+      <div class="pc-bar-row">
+        <span class="pc-year">${prevYear}</span>
+        <div class="pc-bar-bg"><div class="pc-bar-fill" style="width:${prevRatio}%;background:${prevBc}">${(prev.avg*100).toFixed(0)}%</div></div>
+        <span class="pc-bar-label" style="color:${prevBc}">${(prev.avg*100).toFixed(0)}%</span>
+      </div>` : ''}
+
+      <hr class="pc-divider">
+      <div class="pc-stats">
+        <div class="pc-stat">
+          <div class="pc-stat-label">Ort. score</div>
+          <div class="pc-stat-value">${s.avgActual.toFixed(0)}</div>
+          <div class="pc-stat-sub">/ sprint</div>
+        </div>
+        <div class="pc-stat">
+          <div class="pc-stat-label">En iyi sprint</div>
+          <div class="pc-stat-value" style="color:#34d399">${(s.best*100).toFixed(0)}%</div>
+          <div class="pc-stat-sub">kapasite</div>
+        </div>
+        <div class="pc-stat">
+          <div class="pc-stat-label">Ort. item</div>
+          <div class="pc-stat-value">${s.avgItems.toFixed(1)}</div>
+          <div class="pc-stat-sub">/ sprint</div>
+        </div>
+      </div>
+    </div>`);
+  });
+  html.push('</div>');
+
+  // Charts
+  html.push('<div class="charts-grid">');
+  html.push('<div class="chart-card"><div class="chart-title">Kapasite karşılaştırması</div><div style="position:relative;height:260px"><canvas id="chart-bar" role="img" aria-label="Kişi bazlı kapasite oranları"></canvas></div></div>');
+  html.push('<div class="chart-card"><div class="chart-title">Sprint bazlı ekip trendi</div><div style="position:relative;height:260px"><canvas id="chart-trend" role="img" aria-label="Sprint bazlı ekip velocity trendi"></canvas></div></div>');
+  html.push('</div>');
+
+  // Sprint detail table
+  html.push('<div class="section-header"><span class="section-title">Sprint detay tablosu</span></div>');
+  html.push('<div class="trend-card">');
+  html.push('<table class="trend-table"><thead><tr><th>Kişi</th>');
+
+  // Get all sprint names across people
+  const allSprints = [];
+  PEOPLE.forEach(p => {
+    if (!yearData[p]) return;
+    yearData[p].forEach((d, i) => { if (!allSprints[i]) allSprints[i] = d.sprint; });
+  });
+  allSprints.slice(-12).forEach(s => html.push(`<th>${shortSprint(s)}</th>`));
+  html.push('</tr></thead><tbody>');
+
+  PEOPLE.forEach(p => {
+    if (!yearData[p]) return;
+    const av = AVATARS[p] || { color:'#aaa' };
+    html.push(`<tr><td style="font-weight:500;color:${av.color}">${p}</td>`);
+    const recent = yearData[p].slice(-12);
+    recent.forEach(d => {
+      const pc = pillColor(d.ratio);
+      html.push(`<td><span class="cell-pill" style="background:${pc.bg};color:${pc.color}">${(d.ratio*100).toFixed(0)}%</span></td>`);
+    });
+    html.push('</tr>');
+  });
+  html.push('</tbody></table>');
+  html.push('<div class="legend">');
+  html.push('<div class="legend-item"><div class="legend-dot" style="background:#34d399"></div>≥100% hedef</div>');
+  html.push('<div class="legend-item"><div class="legend-dot" style="background:#60a5fa"></div>80–99%</div>');
+  html.push('<div class="legend-item"><div class="legend-dot" style="background:#fbbf24"></div>60–79%</div>');
+  html.push('<div class="legend-item"><div class="legend-dot" style="background:#f87171"></div>&lt;60%</div>');
+  html.push('</div></div>');
+
+  document.getElementById('main-content').innerHTML = html.join('');
+
+  // Render charts after DOM update
+  requestAnimationFrame(() => {
+    renderBarChart(yearData, personStats);
+    renderTrendChart(yearData);
+  });
+}
+
+function summaryCard(label, value, sub, color) {
+  return `<div class="summary-card">
+    <div class="summary-label">${label}</div>
+    <div class="summary-value" style="color:${color}">${value}</div>
+    <div class="summary-sub">${sub}</div>
+  </div>`;
+}
+
+function shortSprint(s) {
+  if (!s) return '';
+  const parts = s.split('-');
+  if (parts.length >= 2) return parts[parts.length-1].trim().slice(0,8);
+  return s.slice(0,10);
+}
+
+function renderBarChart(yearData, personStats) {
+  const canvas = document.getElementById('chart-bar');
+  if (!canvas) return;
+  const labels = PEOPLE.filter(p => yearData[p]);
+  const values = labels.map(p => parseFloat((personStats[p].avg * 100).toFixed(1)));
+  const colors = values.map(v => v >= 100 ? '#34d399' : v >= 80 ? '#60a5fa' : v >= 60 ? '#fbbf24' : '#f87171');
+
+  const c = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Kapasite %',
+        data: values,
+        backgroundColor: colors,
+        borderRadius: 4,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#6b7280', font: { family: 'DM Mono', size: 11 } }, grid: { color: 'rgba(255,255,255,0.04)' }, border: { color: 'rgba(255,255,255,0.07)' } },
+        y: { min: 0, max: 130, ticks: { color: '#6b7280', font: { family: 'DM Mono', size: 11 }, callback: v => v + '%' }, grid: { color: 'rgba(255,255,255,0.04)' }, border: { color: 'rgba(255,255,255,0.07)' } }
+      },
+      animation: { duration: 600 }
+    }
+  });
+  chartInstances.push(c);
+
+  // Target line plugin
+  const targetPlugin = {
+    id: 'targetLine',
+    afterDraw(chart) {
+      const { ctx, chartArea, scales } = chart;
+      const y = scales.y.getPixelForValue(100);
+      ctx.save();
+      ctx.strokeStyle = 'rgba(110,231,183,0.4)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(chartArea.left, y);
+      ctx.lineTo(chartArea.right, y);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(110,231,183,0.6)';
+      ctx.font = '10px DM Mono';
+      ctx.fillText('hedef', chartArea.right - 36, y - 4);
+      ctx.restore();
+    }
+  };
+  c.config.plugins = [targetPlugin];
+  c.update();
+}
+
+function renderTrendChart(yearData) {
+  const canvas = document.getElementById('chart-trend');
+  if (!canvas) return;
+
+  // Team average per sprint
+  const sprintMap = {};
+  PEOPLE.forEach(p => {
+    if (!yearData[p]) return;
+    yearData[p].forEach((d, i) => {
+      if (!sprintMap[i]) sprintMap[i] = { sprint: d.sprint, ratios: [] };
+      sprintMap[i].ratios.push(d.ratio);
+    });
+  });
+
+  const sprintKeys = Object.keys(sprintMap).map(Number).sort((a,b)=>a-b);
+  const labels = sprintKeys.map(k => shortSprint(sprintMap[k].sprint));
+  const teamAvg = sprintKeys.map(k => {
+    const r = sprintMap[k].ratios;
+    return parseFloat((r.reduce((a,b)=>a+b,0)/r.length*100).toFixed(1));
+  });
+
+  const c = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Ekip ort.',
+        data: teamAvg,
+        borderColor: '#818cf8',
+        backgroundColor: 'rgba(129,140,248,0.08)',
+        borderWidth: 2,
+        pointRadius: 3,
+        pointBackgroundColor: '#818cf8',
+        fill: true,
+        tension: 0.3
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#6b7280', font: { family: 'DM Mono', size: 10 }, maxRotation: 45, autoSkip: true, maxTicksLimit: 12 }, grid: { color: 'rgba(255,255,255,0.04)' }, border: { color: 'rgba(255,255,255,0.07)' } },
+        y: { min: 0, ticks: { color: '#6b7280', font: { family: 'DM Mono', size: 11 }, callback: v => v + '%' }, grid: { color: 'rgba(255,255,255,0.04)' }, border: { color: 'rgba(255,255,255,0.07)' } }
+      },
+      animation: { duration: 800 }
+    }
+  });
+  chartInstances.push(c);
+}
+
+function resetDashboard() {
+  chartInstances.forEach(c => c.destroy());
+  chartInstances = [];
+  allData = {};
+  activeYear = null;
+  document.getElementById('file-input').value = '';
+  document.getElementById('upload-screen').style.display = 'flex';
+  document.getElementById('dashboard').style.display = 'none';
+}
+</script>
+</body>
+</html>
