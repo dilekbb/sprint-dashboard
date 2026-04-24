@@ -257,65 +257,68 @@ loadFromGithub();
 
 function normSprint(s) {
   if (!s || typeof s !== 'string') return '';
-  const trMap = {'i':'I','ı':'I','İ':'I','I':'I','ş':'S','Ş':'S','ğ':'G','Ğ':'G','ü':'U','Ü':'U','ö':'O','Ö':'O','ç':'C','Ç':'C'};
-  return s.trim().split('').map(c => trMap[c] || c).join('')
-    .toUpperCase().replace(/\s+/g,'').replace(/-/g,'');
+  // Extract only digits — most robust matching across naming inconsistencies
+  return s.replace(/[^0-9]/g, '');
 }
 
 let kpiLookupKeys = [];
+let kpiLookup = {};
 
-function findKpiScores(kpiLookup, sprintName) {
+function findKpiScores(sprintName) {
   const key = normSprint(sprintName);
   if (kpiLookup[key]) return kpiLookup[key];
-  // Fuzzy: check if key is substring of a KPI key or vice versa
-  for (const k of kpiLookupKeys) {
-    if (k.includes(key) || key.includes(k)) return kpiLookup[k];
-  }
   return null;
 }
 
 function parseKpiSheet(wb) {
   const ws = wb.Sheets['KPIKudo'];
-  if (!ws) return {};
+  if (!ws) return;
   const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
   const sprintRow = rows[0];
-  const lookup = {};
+  kpiLookup = {};
+
+  // Build person row index once
+  const personRows = {};
+  PEOPLE.forEach(name => {
+    for (let r = 1; r < rows.length; r++) {
+      if (rows[r][0] && String(rows[r][0]).trim() === name) {
+        personRows[name] = r; break;
+      }
+    }
+  });
+
   for (let c = 1; c < sprintRow.length; c++) {
     const sprintName = sprintRow[c];
     if (!sprintName) continue;
     const key = normSprint(String(sprintName));
-    if (!lookup[key]) lookup[key] = {};
+    if (!key) continue;
+    if (!kpiLookup[key]) kpiLookup[key] = {};
     PEOPLE.forEach(name => {
-      for (let r = 1; r < rows.length; r++) {
-        const cellName = rows[r][0] ? String(rows[r][0]).trim() : '';
-        if (cellName === name || normSprint(cellName) === normSprint(name)) {
-          const val = rows[r][c];
-          if (val !== null && val !== undefined && typeof val === 'number' && !isNaN(val)) {
-            lookup[key][name] = val;
-          }
-          break;
-        }
+      const r = personRows[name];
+      if (r === undefined) return;
+      const val = rows[r][c];
+      if (val !== null && val !== undefined && typeof val === 'number' && !isNaN(val)) {
+        kpiLookup[key][name] = val;
       }
     });
   }
-  kpiLookupKeys = Object.keys(lookup);
-  return lookup;
+  kpiLookupKeys = Object.keys(kpiLookup);
 }
 
 function parseWorkbook(wb) {
   const result = {};
-  const kpiLookup = parseKpiSheet(wb);
+  parseKpiSheet(wb);
   ['2025','2026'].forEach(year => {
     const ws = wb.Sheets[year];
     if (!ws) return;
     const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
-    const parsed = parseYearSheet(rows, year, kpiLookup);
+    const parsed = parseYearSheet(rows, year);
     if (parsed) result[year] = parsed;
   });
   return result;
 }
 
-function parseYearSheet(rows, year, kpiLookup) {
+function parseYearSheet(rows, year) {
   // Find sprint names row (row 0), actual scores, expected scores
   const sprintRow = rows[0];
   const sprints = [];
@@ -351,7 +354,7 @@ function parseYearSheet(rows, year, kpiLookup) {
     const sprintData = [];
     for (let i = 0; i < n; i++) {
       const sprintName = sprints[i] || `Sprint ${i+1}`;
-      const kpiScores = findKpiScores(kpiLookup, sprintName);
+      const kpiScores = findKpiScores(sprintName);
       const kpiScore = (kpiScores && kpiScores[name] != null) ? kpiScores[name] : null;
       sprintData.push({
         sprint: sprintName,
