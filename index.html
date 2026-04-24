@@ -263,6 +263,18 @@ function normSprint(s) {
     .replace(/\s+/g,'').replace(/-/g,'');
 }
 
+let kpiLookupKeys = [];
+
+function findKpiScores(kpiLookup, sprintName) {
+  const key = normSprint(sprintName);
+  if (kpiLookup[key]) return kpiLookup[key];
+  // Fuzzy: check if key is substring of a KPI key or vice versa
+  for (const k of kpiLookupKeys) {
+    if (k.includes(key) || key.includes(k)) return kpiLookup[k];
+  }
+  return null;
+}
+
 function parseKpiSheet(wb) {
   const ws = wb.Sheets['KPIKudo'];
   if (!ws) return {};
@@ -286,6 +298,7 @@ function parseKpiSheet(wb) {
       }
     });
   }
+  kpiLookupKeys = Object.keys(lookup);
   return lookup;
 }
 
@@ -338,8 +351,8 @@ function parseYearSheet(rows, year, kpiLookup) {
     const sprintData = [];
     for (let i = 0; i < n; i++) {
       const sprintName = sprints[i] || `Sprint ${i+1}`;
-      const kpiKey = normSprint(sprintName);
-      const kpiScore = (kpiLookup[kpiKey] && kpiLookup[kpiKey][name] != null) ? kpiLookup[kpiKey][name] : null;
+      const kpiScores = findKpiScores(kpiLookup, sprintName);
+      const kpiScore = (kpiScores && kpiScores[name] != null) ? kpiScores[name] : null;
       sprintData.push({
         sprint: sprintName,
         actual: actual[i],
