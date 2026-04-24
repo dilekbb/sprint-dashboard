@@ -189,21 +189,10 @@
 </head>
 <body>
 
-<!-- Upload Screen -->
+<!-- Loading Screen -->
 <div id="upload-screen">
   <div class="logo">Sprint Velocity Dashboard</div>
-  <h1>Ekip <span>velocity'nizi</span><br>takip edin</h1>
-  <div class="drop-zone" id="drop-zone">
-    <input type="file" id="file-input" accept=".xlsx,.xls">
-    <div class="drop-icon">📊</div>
-    <div class="drop-text">IT_Rapor.xlsx dosyasını sürükleyin</div>
-    <div class="drop-sub" style="margin-bottom:16px">veya</div>
-    <button class="btn" onclick="document.getElementById('file-input').click()">Dosya seç</button>
-  </div>
-  <div style="font-size:12px;color:var(--muted);text-align:center;max-width:400px">
-    Veriler tarayıcınızda işlenir, hiçbir yere gönderilmez.<br>
-    Her sprint sonunda güncel dosyayı yükleyin.
-  </div>
+  <div style="font-family:var(--mono);font-size:13px;color:var(--muted)" id="load-status">Veriler yükleniyor...</div>
 </div>
 
 <!-- Dashboard -->
@@ -215,7 +204,7 @@
     </div>
     <div class="topbar-right">
       <div class="year-tabs" id="year-tabs"></div>
-      <button class="reload-btn" onclick="resetDashboard()">↩ Yeni dosya</button>
+      <button class="reload-btn" onclick="loadFromGithub()">↻ Yenile</button>
     </div>
   </div>
   <div class="main" id="main-content">
@@ -235,38 +224,36 @@ const AVATARS = {
   'Furkan': {bg:'#2a2a2a', color:'#9ca3af', initials:'FU'}
 };
 
+const GITHUB_FILE_URL = 'IT_Rapor.xlsx';
+
 let allData = {};
 let activeYear = null;
 let chartInstances = [];
 
-// Drag & drop
-const dropZone = document.getElementById('drop-zone');
-const fileInput = document.getElementById('file-input');
+async function loadFromGithub() {
+  document.getElementById('load-status') && (document.getElementById('load-status').textContent = 'Veriler yükleniyor...');
+  document.getElementById('upload-screen').style.display = 'flex';
+  document.getElementById('dashboard').style.display = 'none';
 
-dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
-dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-dropZone.addEventListener('drop', e => {
-  e.preventDefault(); dropZone.classList.remove('drag-over');
-  const file = e.dataTransfer.files[0];
-  if (file) processFile(file);
-});
-fileInput.addEventListener('change', e => { if (e.target.files[0]) processFile(e.target.files[0]); });
-
-function processFile(file) {
-  document.getElementById('file-name-display').textContent = file.name;
-  const reader = new FileReader();
-  reader.onload = e => {
-    const wb = XLSX.read(e.target.result, { type: 'array' });
+  try {
+    const resp = await fetch(GITHUB_FILE_URL + '?t=' + Date.now());
+    if (!resp.ok) throw new Error('Dosya bulunamadı');
+    const buffer = await resp.arrayBuffer();
+    const wb = XLSX.read(buffer, { type: 'array' });
     allData = parseWorkbook(wb);
     const years = Object.keys(allData).sort();
     activeYear = years[years.length - 1];
     buildYearTabs(years);
+    document.getElementById('file-name-display').textContent = 'IT_Rapor.xlsx';
     document.getElementById('upload-screen').style.display = 'none';
     document.getElementById('dashboard').style.display = 'block';
     renderDashboard(activeYear);
-  };
-  reader.readAsArrayBuffer(file);
+  } catch (err) {
+    document.getElementById('load-status').textContent = 'Hata: ' + err.message;
+  }
 }
+
+loadFromGithub();
 
 function parseWorkbook(wb) {
   const result = {};
@@ -653,15 +640,7 @@ function renderTrendChart(yearData) {
   chartInstances.push(c);
 }
 
-function resetDashboard() {
-  chartInstances.forEach(c => c.destroy());
-  chartInstances = [];
-  allData = {};
-  activeYear = null;
-  document.getElementById('file-input').value = '';
-  document.getElementById('upload-screen').style.display = 'flex';
-  document.getElementById('dashboard').style.display = 'none';
-}
+
 </script>
 </body>
 </html>
