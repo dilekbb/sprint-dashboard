@@ -474,7 +474,7 @@ function renderDashboard(year) {
   html.push(summaryCard('Toplam sprint', teamSprints, 'bu yıl', '#818cf8'));
   html.push(summaryCard('Toplam score', Math.round(teamActual).toLocaleString(), 'gerçekleşen', '#60a5fa'));
   html.push(summaryCard('Beklenen score', Math.round(teamExpected).toLocaleString(), 'hedef', '#6b7280'));
-  html.push(summaryCard('Aktif üye', Object.keys(personStats).length, 'kişi', '#6ee7b7'));
+  html.push(summaryCard('Aktif üye', 6, 'kişi', '#6ee7b7'));
   html.push('</div>');
 
   // Sort people by current year ratio descending
@@ -506,7 +506,7 @@ function renderDashboard(year) {
       <div class="pc-header">
         <div class="pc-avatar" style="background:${av.bg};color:${av.color}">${av.initials}</div>
         <div>
-          <div class="pc-name">${p}</div>
+          <div class="pc-name">${p}${p === 'Furkan' ? ' <span style="font-size:10px;color:#6b7280;font-weight:400">· 15 Mayıs 2026\'da ayrıldı</span>' : ''}</div>
           <div class="pc-sprints">${s.total} sprint · ${s.above}/${s.total} hedef</div>
         </div>
         ${trendLabel ? `<span class="pc-badge" style="background:${trendBg};color:${trendColor}">${trendLabel}</span>` : ''}
