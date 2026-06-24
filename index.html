@@ -788,7 +788,7 @@ function renderAnalizPage() {
 
   // Summary row
   h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:20px">';
-  h += summaryCard('Analiz süresi olan iş', issues.length, 'madde', '#818cf8');
+  h += summaryCard('Analiz geçiren iş', issues.length, 'madde', '#818cf8');
   h += summaryCard('Ort. analiz süresi', (avgAnaliz/24).toFixed(1) + ' gün', '', '#fbbf24');
   h += summaryCard('Toplam analiz bekleme', ((statusTotals['Analysis Queue']||0)/24).toFixed(0) + ' gün', 'Analiz Queue', '#f87171');
   h += summaryCard('Toplam aktif analiz', ((statusTotals['Analysis']||0)/24).toFixed(0) + ' gün', 'Analysis', '#34d399');
@@ -801,38 +801,6 @@ function renderAnalizPage() {
   // Top 10 en uzun analiz
   h += '<div class="chart-card"><div class="chart-title">En Uzun Analizler (gün)</div><div style="position:relative;height:260px"><canvas id="tis-top-chart"></canvas></div></div>';
   h += '</div>';
-
-  // Issue tablosu
-  h += '<div class="chart-card"><div class="chart-title">İş Bazlı Statü Süreleri (saat)</div>';
-  h += '<div style="overflow-x:auto"><table class="trend-table">';
-  h += '<thead><tr><th>Issue</th><th>Analiz Queue</th><th>Analysis</th><th>Coding Queue</th><th>Coding</th><th>Code Rev</th><th>Test</th><th>Pause</th></tr></thead><tbody>';
-  
-  issues.slice(0, 20).forEach(i => {
-    const jiraUrl = 'https://perador.atlassian.net/browse/' + i.key;
-    const a = i['Analysis Queue'] || 0;
-    const an = i['Analysis'] || 0;
-    const cq = i['Coding Queue'] || 0;
-    const c = i['Coding'] || 0;
-    const cr = i['cr_toplam'] || 0;
-    const t = i['test_toplam'] || 0;
-    const p = i['Pause'] || 0;
-    
-    const fmt = v => v > 0 ? v.toFixed(0) + 'h' : '—';
-    const color = v => v > 200 ? '#f87171' : v > 48 ? '#fbbf24' : 'var(--muted)';
-    
-    h += '<tr>';
-    h += '<td><a href="' + jiraUrl + '" target="_blank" style="color:#60a5fa;text-decoration:none">' + i.key + '</a></td>';
-    h += '<td style="color:' + color(a) + '">' + fmt(a) + '</td>';
-    h += '<td style="color:' + color(an) + '">' + fmt(an) + '</td>';
-    h += '<td style="color:' + color(cq) + '">' + fmt(cq) + '</td>';
-    h += '<td>' + fmt(c) + '</td>';
-    h += '<td>' + fmt(cr) + '</td>';
-    h += '<td>' + fmt(t) + '</td>';
-    h += '<td style="color:' + color(p) + '">' + fmt(p) + '</td>';
-    h += '</tr>';
-  });
-  
-  h += '</tbody></table></div></div>';
 
   document.getElementById('analiz-main-content').innerHTML = h;
 
