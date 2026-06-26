@@ -665,6 +665,124 @@ function summaryCard(label, value, sub, color) {
 
 
 let activeTab = 'yazilim';
+let activePersonYear = '2026';
+
+function openPerson(name) {
+  chartInstances.forEach(c => c.destroy());
+  chartInstances = [];
+  document.getElementById('dashboard').style.display = 'none';
+  document.querySelector('.topbar').style.display = 'none';
+  document.getElementById('person-page').style.display = 'block';
+  document.getElementById('person-page-name').textContent = name;
+
+  const pdata = PERSON_DATA[name] || {};
+  const years = Object.keys(pdata).filter(y => (pdata[y]||[]).length > 0).sort();
+  activePersonYear = years[years.length - 1];
+
+  const tabs = document.getElementById('person-year-tabs');
+  tabs.innerHTML = '';
+  years.forEach(y => {
+    const btn = document.createElement('button');
+    btn.className = 'year-tab' + (y === activePersonYear ? ' active' : '');
+    btn.textContent = y;
+    btn.onclick = () => {
+      activePersonYear = y;
+      tabs.querySelectorAll('.year-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderPersonCharts(name, y);
+    };
+    tabs.appendChild(btn);
+  });
+  renderPersonCharts(name, activePersonYear);
+}
+
+function closePerson() {
+  chartInstances.forEach(c => c.destroy());
+  chartInstances = [];
+  document.getElementById('person-page').style.display = 'none';
+  document.querySelector('.topbar').style.display = '';
+  document.getElementById('dashboard').style.display = 'block';
+}
+
+function renderPersonCharts(name, year) {
+  chartInstances.forEach(c => c.destroy());
+  chartInstances = [];
+
+  const data = (PERSON_DATA[name] || {})[year] || [];
+  const av = AVATARS[name] || {bg:'#222', color:'#aaa', initials:'?'};
+  const labels = data.map(d => shortSprint3(d.sprint));
+
+  const metrics = [
+    { key: 'items',     label: 'Kodlad\u0131\u011f\u0131 Madde Say\u0131s\u0131', color: '#818cf8', pct: false },
+    { key: 'score',     label: 'Toplam Score',                                    color: '#6ee7b7', pct: false },
+    { key: 'expected',  label: 'Beklenen Score',                                  color: '#60a5fa', pct: false },
+    { key: 'capacity',  label: 'Kapasite %',                                      color: '#fbbf24', pct: true  },
+    { key: 'returned',  label: 'Testten D\u00f6nen Madde',                        color: '#f87171', pct: false },
+    { key: 'timespent', label: 'TimeSpent (saat)',                                color: '#34d399', pct: false },
+  ];
+
+  const latest = data[data.length - 1] || {};
+  const avgCap = data.length ? data.reduce((a,d) => a + d.capacity, 0) / data.length : 0;
+  const totalReturned = data.reduce((a,d) => a + d.returned, 0);
+  const avgScore = data.length ? data.reduce((a,d) => a + d.score, 0) / data.length : 0;
+
+  let h = '<div style="padding:8px 0 20px">';
+  h += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">';
+  h += '<div style="width:44px;height:44px;border-radius:50%;background:' + av.bg + ';color:' + av.color + ';display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;font-weight:500">' + av.initials + '</div>';
+  h += '<div><div style="font-size:18px;font-weight:500">' + name + '</div><div style="font-size:12px;color:var(--muted)">' + year + ' \u00b7 ' + data.length + ' sprint</div></div></div>';
+  h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:24px">';
+  h += summaryCard('Ort. kapasite', (avgCap*100).toFixed(0)+'%', year, avgCap>=1?'#34d399':avgCap>=0.8?'#60a5fa':'#fbbf24');
+  h += summaryCard('Ort. score', avgScore.toFixed(0), '/ sprint', '#818cf8');
+  h += summaryCard('Toplam testten d\u00f6nen', totalReturned, 'madde', '#f87171');
+  h += summaryCard('Son sprint kap.', (latest.capacity||0)*100 > 0 ? ((latest.capacity||0)*100).toFixed(0)+'%' : '-', latest.sprint||'', (latest.capacity||0)>=1?'#34d399':(latest.capacity||0)>=0.8?'#60a5fa':'#fbbf24');
+  h += '</div>';
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">';
+  metrics.forEach((m, idx) => {
+    h += '<div class="chart-card"><div class="chart-title">' + m.label + '</div><div style="position:relative;height:200px"><canvas id="pc-chart-' + idx + '"></canvas></div></div>';
+  });
+  h += '</div></div>';
+
+  document.getElementById('person-main-content').innerHTML = h;
+
+  requestAnimationFrame(() => {
+    metrics.forEach((m, idx) => {
+      const canvas = document.getElementById('pc-chart-' + idx);
+      if (!canvas) return;
+      const values = data.map(d => m.pct ? parseFloat((d[m.key]*100).toFixed(1)) : d[m.key]);
+      const c = new Chart(canvas, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: values,
+            borderColor: m.color,
+            backgroundColor: m.color + '18',
+            borderWidth: 2,
+            pointRadius: 3,
+            pointBackgroundColor: m.color,
+            fill: true,
+            tension: 0.3
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: '#6b7280', font: { family: 'DM Mono', size: 9 }, maxRotation: 45, autoSkip: true, maxTicksLimit: 10 }, grid: { color: 'rgba(255,255,255,0.04)' }, border: { color: 'rgba(255,255,255,0.07)' } },
+            y: { ticks: { color: '#6b7280', font: { family: 'DM Mono', size: 10 }, callback: v => m.pct ? v+'%' : v }, grid: { color: 'rgba(255,255,255,0.04)' }, border: { color: 'rgba(255,255,255,0.07)' } }
+          }
+        }
+      });
+      chartInstances.push(c);
+    });
+  });
+}
+
+function shortSprint3(s) {
+  if (!s) return '';
+  return s.replace(/\(.*\)/, '').trim().slice(0, 12);
+}
+
 
 function switchTab(tab) {
   activeTab = tab;
