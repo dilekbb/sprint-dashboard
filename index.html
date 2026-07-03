@@ -635,12 +635,21 @@ function renderDashboard(year) {
   html.push('<div class="legend-item"><div class="legend-dot" style="background:#fb923c"></div>KPI ort. altı</div>');
   html.push('</div></div>');
 
+  // Şampiyonluk sıralaması
+  html.push('<div class="section-header" style="margin-top:28px"><span class="section-title">🏆 Şampiyonluk Sıralaması</span><div style="display:flex;gap:4px"><button class="year-tab champ-year-btn active" data-year="2026" onclick="renderChampions(\'2026\')">2026</button><button class="year-tab champ-year-btn" data-year="2025" onclick="renderChampions(\'2025\')">2025</button></div></div>');
+  html.push('<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">');
+  html.push('<div class="chart-card"><div class="chart-title">Kudo Şampiyonu</div><div id="champ-kudo-list"></div></div>');
+  html.push('<div class="chart-card"><div class="chart-title">KPI Şampiyonu</div><div id="champ-kpi-list"></div></div>');
+  html.push('</div>');
+  html.push('<div class="chart-card" style="margin-bottom:28px"><div class="chart-title">Kombine Sıralama (Kudo + KPI)</div><div id="champ-podium" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px"></div></div>');
+
   document.getElementById('main-content').innerHTML = html.join('');
 
   // Render charts after DOM update
   requestAnimationFrame(() => {
     renderBarChart(yearData, personStats);
     renderTrendChart(yearData);
+    renderChampions(year);
   });
 }
 
