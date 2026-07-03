@@ -804,57 +804,6 @@ function renderTestPage() {
   chartInstances.forEach(c => c.destroy());
   chartInstances = [];
   const d = TEST_DATA['Nazl\u0131can'] || {};
-  // Şampiyonluk sıralaması
-  const champPersonColors = {
-    'Farhad':'#fbbf24','Malik':'#34d399','MuratSaç':'#60a5fa',
-    'Yılmaz':'#fb923c','Emre':'#818cf8','İslam':'#6ee7b7',
-    'Ömer':'#60a5fa','Devrim':'#9ca3af','Burak':'#34d399',
-  };
-
-  let activeChampYear = '2026';
-
-  function renderChampions(year) {
-    activeChampYear = year;
-    document.querySelectorAll('.champ-year-btn').forEach(b => {
-      b.classList.toggle('active', b.dataset.year === year);
-    });
-    const data = CHAMPION_DATA[year] || {};
-    const kudoSorted = Object.entries(data).filter(([,v]) => v.kudo > 0).sort((a,b) => b[1].kudo - a[1].kudo);
-    const kpiSorted  = Object.entries(data).filter(([,v]) => v.kpi  > 0).sort((a,b) => b[1].kpi  - a[1].kpi);
-    const combined   = Object.entries(data).filter(([,v]) => v.total > 0).sort((a,b) => b[1].total - a[1].total);
-
-    function barList(sorted, key) {
-      if (!sorted.length) return '<div style="color:var(--muted);font-size:12px">Veri yok</div>';
-      const max = sorted[0][1][key];
-      return sorted.map(([name, v], idx) => {
-        const color = champPersonColors[name] || '#9ca3af';
-        const pct = (v[key] / max * 100).toFixed(0);
-        return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
-          + '<span style="font-family:var(--mono);font-size:11px;color:var(--muted);min-width:16px">'+(idx+1)+'</span>'
-          + '<span style="font-size:13px;min-width:80px">'+name+'</span>'
-          + '<div style="flex:1;height:14px;background:var(--surface2);border-radius:3px;overflow:hidden"><div style="width:'+pct+'%;height:100%;background:'+color+';border-radius:3px"></div></div>'
-          + '<span style="font-family:var(--mono);font-size:12px;color:'+color+';min-width:24px;text-align:right">'+v[key]+'</span>'
-          + '</div>';
-      }).join('');
-    }
-
-    const medals = ['🥇','🥈','🥉'];
-    const podium = combined.slice(0,8).map(([name, v], idx) => {
-      const color = champPersonColors[name] || '#9ca3af';
-      const medal = medals[idx] || (idx+1)+'.';
-      return '<div style="background:var(--surface2);border-radius:10px;padding:12px 16px;min-width:100px;text-align:center">'
-        + '<div style="font-size:18px;margin-bottom:4px">'+medal+'</div>'
-        + '<div style="font-size:13px;font-weight:500;color:'+color+'">'+name+'</div>'
-        + '<div style="font-family:var(--mono);font-size:18px;font-weight:500;margin:4px 0">'+v.total+'</div>'
-        + '<div style="font-size:10px;color:var(--muted)">'+v.kudo+' kudo · '+v.kpi+' kpi</div>'
-        + '</div>';
-    }).join('');
-
-    document.getElementById('champ-kudo-list').innerHTML = barList(kudoSorted, 'kudo');
-    document.getElementById('champ-kpi-list').innerHTML = barList(kpiSorted, 'kpi');
-    document.getElementById('champ-podium').innerHTML = podium;
-  }
-
   let h = '<div style="padding:20px 0">';
 
   // Şampiyonluk bölümü
@@ -887,6 +836,59 @@ function renderTestPage() {
   h += '</div></div>';
   document.getElementById('test-main-content').innerHTML = h;
 }
+
+// Şampiyonluk sıralaması
+const champPersonColors = {
+  'Farhad':'#fbbf24','Malik':'#34d399','MuratSaç':'#60a5fa',
+  'Yılmaz':'#fb923c','Emre':'#818cf8','İslam':'#6ee7b7',
+  'Ömer':'#60a5fa','Devrim':'#9ca3af','Burak':'#34d399',
+};
+
+let activeChampYear = '2026';
+
+function renderChampions(year) {
+  activeChampYear = year;
+  document.querySelectorAll('.champ-year-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.year === year);
+  });
+  const data = CHAMPION_DATA[year] || {};
+  const kudoSorted = Object.entries(data).filter(([,v]) => v.kudo > 0).sort((a,b) => b[1].kudo - a[1].kudo);
+  const kpiSorted  = Object.entries(data).filter(([,v]) => v.kpi  > 0).sort((a,b) => b[1].kpi  - a[1].kpi);
+  const combined   = Object.entries(data).filter(([,v]) => v.total > 0).sort((a,b) => b[1].total - a[1].total);
+
+function barList(sorted, key) {
+    if (!sorted.length) return '<div style="color:var(--muted);font-size:12px">Veri yok</div>';
+    const max = sorted[0][1][key];
+    return sorted.map(([name, v], idx) => {
+      const color = champPersonColors[name] || '#9ca3af';
+      const pct = (v[key] / max * 100).toFixed(0);
+      return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
+        + '<span style="font-family:var(--mono);font-size:11px;color:var(--muted);min-width:16px">'+(idx+1)+'</span>'
+        + '<span style="font-size:13px;min-width:80px">'+name+'</span>'
+        + '<div style="flex:1;height:14px;background:var(--surface2);border-radius:3px;overflow:hidden"><div style="width:'+pct+'%;height:100%;background:'+color+';border-radius:3px"></div></div>'
+        + '<span style="font-family:var(--mono);font-size:12px;color:'+color+';min-width:24px;text-align:right">'+v[key]+'</span>'
+        + '</div>';
+    }).join('');
+  }
+
+  const medals = ['🥇','🥈','🥉'];
+  const podium = combined.slice(0,8).map(([name, v], idx) => {
+    const color = champPersonColors[name] || '#9ca3af';
+    const medal = medals[idx] || (idx+1)+'.';
+    return '<div style="background:var(--surface2);border-radius:10px;padding:12px 16px;min-width:100px;text-align:center">'
+      + '<div style="font-size:18px;margin-bottom:4px">'+medal+'</div>'
+      + '<div style="font-size:13px;font-weight:500;color:'+color+'">'+name+'</div>'
+      + '<div style="font-family:var(--mono);font-size:18px;font-weight:500;margin:4px 0">'+v.total+'</div>'
+      + '<div style="font-size:10px;color:var(--muted)">'+v.kudo+' kudo · '+v.kpi+' kpi</div>'
+      + '</div>';
+  }).join('');
+
+  document.getElementById('champ-kudo-list').innerHTML = barList(kudoSorted, 'kudo');
+  document.getElementById('champ-kpi-list').innerHTML = barList(kpiSorted, 'kpi');
+  document.getElementById('champ-podium').innerHTML = podium;
+}
+
+
 
 function renderAnalizPage() {
   chartInstances.forEach(c => c.destroy());
