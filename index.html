@@ -237,9 +237,10 @@ function switchTab(tab) {
   });
   document.getElementById('page-person').style.display = 'none';
   document.getElementById('year-tabs').style.display = tab==='yazilim' ? 'flex' : 'none';
+  destroyCharts();
+  if (tab==='yazilim') renderDashboard(activeYear);
   if (tab==='test') renderTest();
   if (tab==='analiz') renderAnaliz();
-  destroyCharts();
 }
 
 // ── Helpers ──
@@ -532,6 +533,9 @@ function closePerson() {
   ['yazilim','test','analiz'].forEach(t => {
     document.getElementById('page-'+t).style.display = t===activeTab?'block':'none';
   });
+  if (activeTab==='yazilim') renderDashboard(activeYear);
+  if (activeTab==='test') renderTest();
+  if (activeTab==='analiz') renderAnaliz();
 }
 
 function renderPersonDetail(name, year) {
