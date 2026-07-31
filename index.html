@@ -312,7 +312,7 @@ function renderDashboard(year) {
 
   // Summary
   html.push('<div class="summary-strip">');
-  html.push(summaryCard('Ekip kapasite',(teamRatio*100).toFixed(0)+'%',year,teamRatio>=1?'#34d399':teamRatio>=.8?'#60a5fa':'#fbbf24'));
+  html.push(summaryCard('Gerçekleşen/Beklenen',Math.round(teamActual)+'/'+Math.round(teamExpected),'score',teamRatio>=1?'#34d399':teamRatio>=.8?'#60a5fa':'#fbbf24'));
   html.push(summaryCard('Toplam sprint',teamSprints,'bu yıl','#818cf8'));
   html.push(summaryCard('Toplam score',Math.round(teamActual).toLocaleString(),'gerçekleşen','#60a5fa'));
   html.push(summaryCard('Beklenen score',Math.round(teamExpected).toLocaleString(),'hedef','#6b7280'));
@@ -358,7 +358,7 @@ function renderDashboard(year) {
       <hr class="pc-divider">
       <div class="pc-stats">
         <div><div class="pc-stat-label">Ort. score</div><div class="pc-stat-value">${s.avgActual.toFixed(0)}</div><div class="pc-stat-sub">/ sprint</div></div>
-        <div><div class="pc-stat-label">En iyi sprint</div><div class="pc-stat-value" style="color:#34d399">${(s.best*100).toFixed(0)}%</div><div class="pc-stat-sub">kapasite</div></div>
+        <div><div class="pc-stat-label">En iyi sprint</div><div class="pc-stat-value" style="color:#34d399">${(s.best*100).toFixed(0)}%</div><div class="pc-stat-sub">ger/bek</div></div>
         <div><div class="pc-stat-label">Ort. item</div><div class="pc-stat-value">${s.avgItems.toFixed(1)}</div><div class="pc-stat-sub">/ sprint</div></div>
       </div>
     </div>`);
@@ -562,7 +562,7 @@ function renderPersonDetail(name, year) {
       <div><div style="font-size:18px;font-weight:500">${name}</div><div style="font-size:12px;color:var(--muted)">${year} · ${data.length} sprint</div></div>
     </div>
     <div class="summary-strip" style="margin-bottom:24px">
-      ${summaryCard('Ort. kapasite',(avgCap*100).toFixed(0)+'%',year,avgCap>=1?'#34d399':avgCap>=.8?'#60a5fa':'#fbbf24')}
+      ${summaryCard('Ort. gerçekleşen',s.avgActual.toFixed(0),'score / sprint',avgCap>=1?'#34d399':avgCap>=.8?'#60a5fa':'#fbbf24')}
       ${summaryCard('Ort. score',avgScore.toFixed(0),'/ sprint','#818cf8')}
       ${summaryCard('Toplam testten dönen',totalRet,'madde','#f87171')}
       ${summaryCard('Son sprint kap.',(latest.capacity||0)>0?((latest.capacity||0)*100).toFixed(0)+'%':'-',latest.sprint||'',(latest.capacity||0)>=1?'#34d399':(latest.capacity||0)>=.8?'#60a5fa':'#fbbf24')}
