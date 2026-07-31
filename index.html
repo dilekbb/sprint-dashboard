@@ -237,10 +237,9 @@ function switchTab(tab) {
   });
   document.getElementById('page-person').style.display = 'none';
   document.getElementById('year-tabs').style.display = tab==='yazilim' ? 'flex' : 'none';
-  destroyCharts();
   if (tab==='yazilim') renderDashboard(activeYear);
-  if (tab==='test') renderTest();
-  if (tab==='analiz') renderAnaliz();
+  else if (tab==='test') { destroyCharts(); renderTest(); }
+  else if (tab==='analiz') { destroyCharts(); renderAnaliz(); }
 }
 
 // ── Helpers ──
@@ -312,7 +311,7 @@ function renderDashboard(year) {
 
   // Summary
   html.push('<div class="summary-strip">');
-  html.push(summaryCard('Gerçekleşen/Beklenen',Math.round(teamActual)+'/'+Math.round(teamExpected),'score',teamRatio>=1?'#34d399':teamRatio>=.8?'#60a5fa':'#fbbf24'));
+  html.push(summaryCard('Gerçekleşen/Beklenen',(teamRatio*100).toFixed(0)+'%',year,teamRatio>=1?'#34d399':teamRatio>=.8?'#60a5fa':'#fbbf24'));
   html.push(summaryCard('Toplam sprint',teamSprints,'bu yıl','#818cf8'));
   html.push(summaryCard('Toplam score',Math.round(teamActual).toLocaleString(),'gerçekleşen','#60a5fa'));
   html.push(summaryCard('Beklenen score',Math.round(teamExpected).toLocaleString(),'hedef','#6b7280'));
@@ -562,7 +561,7 @@ function renderPersonDetail(name, year) {
       <div><div style="font-size:18px;font-weight:500">${name}</div><div style="font-size:12px;color:var(--muted)">${year} · ${data.length} sprint</div></div>
     </div>
     <div class="summary-strip" style="margin-bottom:24px">
-      ${summaryCard('Ort. gerçekleşen',s.avgActual.toFixed(0),'score / sprint',avgCap>=1?'#34d399':avgCap>=.8?'#60a5fa':'#fbbf24')}
+      ${summaryCard('Gerçekleşen/Beklenen',(avgCap*100).toFixed(0)+'%',year,avgCap>=1?'#34d399':avgCap>=.8?'#60a5fa':'#fbbf24')}
       ${summaryCard('Ort. score',avgScore.toFixed(0),'/ sprint','#818cf8')}
       ${summaryCard('Toplam testten dönen',totalRet,'madde','#f87171')}
       ${summaryCard('Son sprint kap.',(latest.capacity||0)>0?((latest.capacity||0)*100).toFixed(0)+'%':'-',latest.sprint||'',(latest.capacity||0)>=1?'#34d399':(latest.capacity||0)>=.8?'#60a5fa':'#fbbf24')}
