@@ -10056,9 +10056,9 @@ function renderDashboard(year) {
     personStats[p] = {
       avg, total: d.length,
       above: ratios.filter(r=>r>=1).length,
-      totalActual: d.reduce((a,s)=>a+s.actual,0),
+      totalActual: d.reduce((a,s)=>a+(s.score||0),0),
       totalExpected: d.reduce((a,s)=>a+s.expected,0),
-      avgActual: d.reduce((a,s)=>a+s.actual,0)/d.length,
+      avgActual: d.reduce((a,s)=>a+(s.score||0),0)/d.length,
       avgItems: d.filter(s=>s.items).reduce((a,s)=>a+s.items,0)/(d.filter(s=>s.items).length||1),
       best: Math.max(...ratios), worst: Math.min(...ratios),
     };
